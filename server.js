@@ -13,6 +13,50 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Initialize Database Tables Automatically
+async function initDb() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        email VARCHAR(100) NULL,
+        debt_balance DECIMAL(10,2) DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS jobs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        job_title VARCHAR(150) NOT NULL,
+        customer_id INT NOT NULL,
+        quantity INT DEFAULT 1,
+        unit_price DECIMAL(10,2) DEFAULT 0.00,
+        total_price DECIMAL(10,2) DEFAULT 0.00,
+        amount_paid DECIMAL(10,2) DEFAULT 0.00,
+        status ENUM('pending', 'assigned', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending',
+        notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+      );
+    `);
+
+    await db.query(`
+      INSERT INTO customers (id, name, phone, email) 
+      VALUES (1, 'Walk-in Customer', '0246116269', 'info@handsontech.com')
+      ON DUPLICATE KEY UPDATE name=VALUES(name);
+    `);
+
+    console.log("Database tables and initial customer initialized successfully.");
+  } catch (err) {
+    console.error("Error initializing database tables:", err);
+  }
+}
+
+initDb();
+
 // Main Dashboard
 app.get('/', async (req, res) => {
   try {
