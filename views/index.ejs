@@ -146,6 +146,43 @@
             </div>
 
         </div>
+
+        <!-- Customer Directory -->
+        <div class="mt-6 bg-white rounded-xl shadow p-5 border border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-users text-slate-800"></i> Customer Directory
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-600">
+                    <thead class="bg-gray-100 text-gray-700 uppercase text-xs">
+                        <tr>
+                            <th class="p-3">Customer Name</th>
+                            <th class="p-3">Phone</th>
+                            <th class="p-3">Email</th>
+                            <th class="p-3">Debt Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (customers.length === 0) { %>
+                            <tr>
+                                <td colspan="4" class="p-4 text-center text-gray-400">No customers registered yet. Click "+ Add Customer" to add one.</td>
+                            </tr>
+                        <% } %>
+                        <% customers.forEach(c => { %>
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-3 font-semibold text-gray-800"><%= c.name %></td>
+                            <td class="p-3"><%= c.phone %></td>
+                            <td class="p-3"><%= c.email || 'N/A' %></td>
+                            <td class="p-3 font-bold <%= Number(c.debt_balance) > 0 ? 'text-red-600' : 'text-green-600' %>">
+                                GH₵ <%= Number(c.debt_balance || 0).toFixed(2) %>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
     <!-- Modal: Job -->
