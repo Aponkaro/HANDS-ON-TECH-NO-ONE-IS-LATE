@@ -1,7 +1,6 @@
 const express = require('express');
 const path = require('path');
 const db = require('./db');
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,45 +12,47 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize Database Tables Automatically
+// Initialize SQLite Database Tables
 async function initDb() {
   try {
     await db.query(`
       CREATE TABLE IF NOT EXISTS customers (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        phone VARCHAR(20) NOT NULL,
-        email VARCHAR(100) NULL,
-        debt_balance DECIMAL(10,2) DEFAULT 0.00,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT NULL,
+        debt_balance REAL DEFAULT 0.00,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS jobs (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        job_title VARCHAR(150) NOT NULL,
-        customer_id INT NOT NULL,
-        quantity INT DEFAULT 1,
-        unit_price DECIMAL(10,2) DEFAULT 0.00,
-        total_price DECIMAL(10,2) DEFAULT 0.00,
-        amount_paid DECIMAL(10,2) DEFAULT 0.00,
-        status ENUM('pending', 'assigned', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending',
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        job_title TEXT NOT NULL,
+        customer_id INTEGER NOT NULL,
+        quantity INTEGER DEFAULT 1,
+        unit_price REAL DEFAULT 0.00,
+        total_price REAL DEFAULT 0.00,
+        amount_paid REAL DEFAULT 0.00,
+        status TEXT DEFAULT 'pending',
         notes TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
       );
     `);
 
-    await db.query(`
-      INSERT INTO customers (id, name, phone, email) 
-      VALUES (1, 'Walk-in Customer', '0246116269', 'info@handsontech.com')
-      ON DUPLICATE KEY UPDATE name=VALUES(name);
-    `);
+    const existingWalkIn = await db.query("SELECT * FROM customers WHERE id = 1");
+    if (existingWalkIn.length === 0) {
+      await db.query(`
+        INSERT INTO customers (id, name, phone, email) 
+        VALUES (1, 'Walk-in Customer', '0246116269', 'info@handsontech.com')
+      `);
+    }
 
-    console.log("Database tables and initial customer initialized successfully.");
+    console.log("SQLite database initialized successfully.");
   } catch (err) {
-    console.error("Error initializing database tables:", err);
+    console.error("Error initializing SQLite database:", err);
   }
 }
 
@@ -60,19 +61,24 @@ initDb();
 // Main Dashboard
 app.get('/', async (req, res) => {
   try {
-    const [[{ pending_count }]] = await db.query("SELECT COUNT(*) AS pending_count FROM jobs WHERE status='pending'");
-    const [[{ progress_count }]] = await db.query("SELECT COUNT(*) AS progress_count FROM jobs WHERE status='in_progress'");
-    const [[{ completed_count }]] = await db.query("SELECT COUNT(*) AS completed_count FROM jobs WHERE status='completed'");
-    const [[{ total_revenue }]] = await db.query("SELECT COALESCE(SUM(amount_paid), 0) AS total_revenue FROM jobs");
+    const pendingRes = await db.query("SELECT COUNT(*) AS pending_count FROM jobs WHERE status='pending'");
+    const progressRes = await db.query("SELECT COUNT(*) AS progress_count FROM jobs WHERE status='in_progress'");
+    const completedRes = await db.query("SELECT COUNT(*) AS completed_count FROM jobs WHERE status='completed'");
+    const revenueRes = await db.query("SELECT COALESCE(SUM(amount_paid), 0) AS total_revenue FROM jobs");
 
-    const [jobs] = await db.query(`
+    const pending_count = pendingRes[0].pending_count;
+    const progress_count = progressRes[0].progress_count;
+    const completed_count = completedRes[0].completed_count;
+    const total_revenue = revenueRes[0].total_revenue;
+
+    const jobs = await db.query(`
       SELECT j.*, c.name as customer_name, c.phone 
       FROM jobs j 
       JOIN customers c ON j.customer_id = c.id 
       ORDER BY j.id DESC
     `);
 
-    const [customers] = await db.query("SELECT * FROM customers ORDER BY name ASC");
+    const customers = await db.query("SELECT * FROM customers ORDER BY name ASC");
 
     res.render('index', {
       metrics: { pending_count, progress_count, completed_count, total_revenue },
@@ -81,7 +87,7 @@ app.get('/', async (req, res) => {
     });
   } catch (err) {
     console.error("Database Error:", err);
-    res.status(500).send("Database Connection Error: " + err.message);
+    res.status(500).send("Database Error: " + err.message);
   }
 });
 
@@ -143,7 +149,7 @@ app.post('/update-job-status', async (req, res) => {
 // Generate Printable Invoice
 app.get('/invoice/:id', async (req, res) => {
   try {
-    const [rows] = await db.query(`
+    const rows = await db.query(`
       SELECT j.*, c.name as customer_name, c.phone, c.email 
       FROM jobs j 
       JOIN customers c ON j.customer_id = c.id 
