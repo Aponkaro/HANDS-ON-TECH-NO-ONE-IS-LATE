@@ -1,16 +1,24 @@
-const mysql = require('mysql2');
-require('dotenv').config();
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'handsontech_db',
-  port: process.env.DB_PORT || 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  ssl: process.env.DB_HOST !== 'localhost' ? { rejectUnauthorized: false } : false
-});
+const dbPath = path.join(__dirname, 'database.sqlite');
+const db = new sqlite3.Database(dbPath);
 
-module.exports = pool.promise();
+// Helper function to run queries using Promises
+const query = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    if (sql.trim().toUpperCase().startsWith('SELECT')) {
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    } else {
+      db.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve({ insertId: this.lastID, changes: this.changes });
+      });
+    }
+  });
+};
+
+module.exports = { query };
