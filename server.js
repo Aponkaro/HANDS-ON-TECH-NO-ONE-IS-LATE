@@ -46,6 +46,17 @@ app.get('/', async (req, res) => {
   }
 });
 
+// Database Test Route
+app.get('/test-db', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM customers');
+    res.json(rows);
+  } catch (err) {
+    console.error("Test DB Error:", err);
+    res.status(500).send("Database Query Error: " + err.message);
+  }
+});
+
 // Add Customer
 app.post('/add-customer', async (req, res) => {
   try {
